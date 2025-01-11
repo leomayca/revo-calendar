@@ -1,24 +1,34 @@
+// src/components/RevoCalendar/helpers/functions.ts
+
 import { CSS_COLORS, LEAP_MONTH_DAYS, REGULAR_MONTH_DAYS } from "./consts";
+import { SupportedLang, LanguageTranslations } from "../types/language";
 
 const helperFunctions = {
-  isValidDate: function (d: Date): Date | boolean {
-    return d && !isNaN(d.getTime());
+  isValidDate(d: Date): boolean {
+    return d instanceof Date && !isNaN(d.getTime());
   },
-  isLeapYear: function (cY: number): number[] {
-    if ((cY % 4 === 0 && cY % 100 !== 0) || cY % 400 === 0) {
-      return LEAP_MONTH_DAYS;
-    } else {
-      return REGULAR_MONTH_DAYS;
-    }
+
+  getDaysInMonths(cY: number): number[] {
+    return (cY % 4 === 0 && cY % 100 !== 0) || cY % 400 === 0
+      ? LEAP_MONTH_DAYS
+      : REGULAR_MONTH_DAYS;
   },
-  isToday: function (d: number, m: number, y: number): boolean {
-    var today = new Date();
-    return y === today.getFullYear() && m === today.getMonth() && d === today.getDate();
+
+  isToday(d: number, m: number, y: number): boolean {
+    const today = new Date();
+    return (
+      y === today.getFullYear() &&
+      m === today.getMonth() &&
+      d === today.getDate()
+    );
   },
-  decomposeRGBA: function (color: string | null): number[] | null {
+
+  decomposeRGBA(color: string | null): number[] | null {
     if (!color) return null;
+
     if (color.toLowerCase() === "transparent") return [0, 0, 0, 0];
-    if (color[0] === "#") {
+
+    if (color.startsWith("#")) {
       if (color.length < 7) {
         color =
           "#" +
@@ -37,63 +47,98 @@ const helperFunctions = {
         color.length > 7 ? parseInt(color.substr(7, 2), 16) / 255 : 1,
       ];
     }
-    if (color.indexOf("rgb") === -1) {
-      if (CSS_COLORS[color]) {
-        return helperFunctions.decomposeRGBA(CSS_COLORS[color]);
+
+    if (!color.startsWith("rgb")) {
+      const cssColor = CSS_COLORS[color.toLowerCase()];
+      if (cssColor) {
+        return helperFunctions.decomposeRGBA(cssColor);
+      }
+      return null;
+    }
+
+    if (color.startsWith("rgb")) {
+      if (!color.startsWith("rgba")) color += ",1";
+      const rgbaItems = color.match(/[\.\d]+/g);
+      if (rgbaItems) {
+        return rgbaItems.map(Number);
       }
     }
-    if (color.indexOf("rgb") === 0) {
-      if (color.indexOf("rgba") === -1) color += ",1";
-      var rgbaItems = color.match(/[\.\d]+/g);
-      if (rgbaItems != null) {
-        return rgbaItems.map(function (a) {
-          return +a;
-        });
-      }
-    }
+
     return null;
   },
-  getRGBColor: function (color: string): string {
-    var rgba = this.decomposeRGBA(color);
-    return rgba != null ? `rgb(${rgba[0]}, ${rgba[1]}, ${rgba[2]})` : "";
+
+  getRGBColor(color: string): string {
+    const rgba = this.decomposeRGBA(color);
+    return rgba ? `rgb(${rgba[0]}, ${rgba[1]}, ${rgba[2]})` : "";
   },
-  getRGBAColorWithAlpha: function (color: string, alpha: number): string {
-    var rgba = this.decomposeRGBA(color);
-    return rgba != null ? `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3] * alpha})` : "";
+
+  getRGBAColorWithAlpha(color: string, alpha: number): string {
+    const rgba = this.decomposeRGBA(color);
+    return rgba
+      ? `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3] * alpha})`
+      : "";
   },
-  getFirstWeekDayOfMonth: function (cM: number, cY: number): number {
+
+  getFirstWeekDayOfMonth(cM: number, cY: number): number {
     return new Date(cY, cM, 1).getDay();
   },
-  getNumberWithOrdinal: function (n: number): string {
-    var s = ["th", "st", "nd", "rd"];
-    var v = n % 100;
+
+  getNumberWithOrdinal(n: number): string {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   },
-  getFormattedDate: function (date: Date, format: string, lang: string, languages: object): string {
-    var mm = date.getMonth() + 1 <= 9 ? "0" + (date.getMonth() + 1) : (date.getMonth() + 1).toString();
-    var dd = date.getDate() <= 9 ? "0" + date.getDate() : date.getDate().toString();
-    var nth = this.getNumberWithOrdinal(date.getDate());
 
-    format = format.replace("MMMM", languages[lang].months[date.getMonth()]);
-    format = format.replace("MMM", languages[lang].monthsShort[date.getMonth()]);
-    format = format.replace("MM", mm);
-    format = format.replace("DD", dd);
-    format = format.replace("nth", nth);
-    format = format.replace("dddd", languages[lang].days[date.getDay()]);
-    format = format.replace("ddd", languages[lang].daysShort[date.getDay()]);
-    format = format.replace("dd", languages[lang].daysMin[date.getDay()]);
-    format = format.replace("YYYY", date.getFullYear().toString());
-    format = format.replace("YY", date.getFullYear().toString().substr(2));
+  getFormattedDate(
+    date: Date,
+    format: string,
+    lang: SupportedLang,
+    languages: Record<SupportedLang, LanguageTranslations>
+  ): string {
+    const mm =
+      date.getMonth() + 1 <= 9
+        ? "0" + (date.getMonth() + 1)
+        : (date.getMonth() + 1).toString();
+    const dd =
+      date.getDate() <= 9 ? "0" + date.getDate() : date.getDate().toString();
+    const nth = this.getNumberWithOrdinal(date.getDate());
 
-    return format;
+    let formatted = format;
+    formatted = formatted.replace(
+      "MMMM",
+      languages[lang].months[date.getMonth()]
+    );
+    formatted = formatted.replace(
+      "MMM",
+      languages[lang].monthsShort[date.getMonth()]
+    );
+    formatted = formatted.replace("MM", mm);
+    formatted = formatted.replace("DD", dd);
+    formatted = formatted.replace("nth", nth);
+    formatted = formatted.replace("dddd", languages[lang].days[date.getDay()]);
+    formatted = formatted.replace(
+      "ddd",
+      languages[lang].daysShort[date.getDay()]
+    );
+    formatted = formatted.replace("dd", languages[lang].daysMin[date.getDay()]);
+    formatted = formatted.replace("YYYY", date.getFullYear().toString());
+    formatted = formatted.replace(
+      "YY",
+      date.getFullYear().toString().substr(2)
+    );
+
+    return formatted;
   },
-  getFormattedTime: function (date: Date, format24h: boolean): string {
+
+  getFormattedTime(date: Date, format24h: boolean): string {
     if (format24h) {
-      var hours = date.getHours() <= 9 ? "0" + date.getHours() : date.getHours();
-      var minutes = date.getMinutes() <= 9 ? "0" + date.getMinutes() : date.getMinutes();
+      const hours =
+        date.getHours() <= 9 ? "0" + date.getHours() : date.getHours();
+      const minutes =
+        date.getMinutes() <= 9 ? "0" + date.getMinutes() : date.getMinutes();
       return `${hours}:${minutes}`;
     } else {
-      var time = date.toLocaleString("en-US", {
+      const time = date.toLocaleString("en-US", {
         hour: "numeric",
         minute: "numeric",
         hour12: true,

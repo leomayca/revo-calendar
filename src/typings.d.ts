@@ -1,29 +1,29 @@
-interface SvgrComponent
-  extends React.StatelessComponent<React.SVGAttributes<SVGElement>> {}
+import { SupportedLang, LanguageTranslations } from "../../types/language";
 
-declare module "*.svg" {
-  const svgUrl: string;
-  const svgComponent: SvgrComponent;
-  export default svgUrl;
-  export { svgComponent as ReactComponent };
+export interface EventExtra {
+  icon?: string;
+  text: string;
 }
 
-interface Events {
+export interface Events {
   name: string;
-  date: number;
+  date: string; // Alterado de number para string. Se preferir Date, ajuste conforme necessário.
   allDay?: boolean;
-  extra?: {
-    icon?: string;
-    text: string;
-  };
+  extra?: EventExtra;
+}
+
+export interface SelectedDate {
+  day: number;
+  month: number;
+  year: number;
 }
 
 export interface Props {
-  style?: object;
+  style?: React.CSSProperties;
   className?: string;
   events?: Array<Events>;
   highlightToday?: boolean;
-  lang?: string;
+  lang?: SupportedLang; // Alterado de string para SupportedLang
   primaryColor?: string;
   secondaryColor?: string;
   todayColor?: string;
@@ -43,15 +43,15 @@ export interface Props {
   timeFormat24?: boolean;
   showAllDayLabel?: boolean;
   detailDateFormat?: string;
-  languages?: Object;
+  languages?: Record<SupportedLang, LanguageTranslations>;
   date?: Date;
-  dateSelected?(date: { day: number; month: number; year: number }): void;
+  dateSelected?(date: SelectedDate): void;
   eventSelected?(index: number): void;
   addEvent?(date: Date): void;
   deleteEvent?(index: number): void;
 }
 
-//Styled Component Props
+// Styled Component Props
 
 export interface SidebarProps {
   sidebarOpen: boolean;

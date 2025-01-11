@@ -1,16 +1,23 @@
-export const CLOCK_ICON_SVG =
+export const CLOCK_ICON_SVG: string =
   "M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm1 12v-6h-2v8h7v-2h-5z";
 
-export const CHEVRON_ICON_SVG = "M1.5 1L0 2.5l4 4l4-4L6.5 1L4 3.5L1.5 1z";
-export const SIDEBAR_ICON_SVG =
+export const CHEVRON_ICON_SVG: string =
+  "M1.5 1L0 2.5l4 4l4-4L6.5 1L4 3.5L1.5 1z";
+
+export const SIDEBAR_ICON_SVG: string =
   "M20 20h-4v-4h4v4zm-6-10h-4v4h4v-4zm6 0h-4v4h4v-4zm-12 6h-4v4h4v-4zm6 0h-4v4h4v-4zm-6-6h-4v4h4v-4zm16-8v22h-24v-22h3v1c0 1.103.897 2 2 2s2-.897 2-2v-1h10v1c0 1.103.897 2 2 2s2-.897 2-2v-1h3zm-2 6h-20v14h20v-14zm-2-7c0-.552-.447-1-1-1s-1 .448-1 1v2c0 .552.447 1 1 1s1-.448 1-1v-2zm-14 2c0 .552-.447 1-1 1s-1-.448-1-1v-2c0-.552.447-1 1-1s1 .448 1 1v2z";
 
-export const DETAILS_ICON_SVG = "M24 6h-24v-4h24v4zm0 4h-24v4h24v-4zm0 8h-24v4h24v-4z";
+export const DETAILS_ICON_SVG: string =
+  "M24 6h-24v-4h24v4zm0 4h-24v4h24v-4zm0 8h-24v4h24v-4z";
 
-export const REGULAR_MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-export const LEAP_MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+export const REGULAR_MONTH_DAYS: number[] = [
+  31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+];
+export const LEAP_MONTH_DAYS: number[] = [
+  31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+];
 
-export const CSS_COLORS = {
+export const CSS_COLORS: Record<string, string> = {
   aliceblue: "#f0f8ff",
   antiquewhite: "#faebd7",
   aqua: "#00ffff",
@@ -66,7 +73,7 @@ export const CSS_COLORS = {
   greenyellow: "#adff2f",
   honeydew: "#f0fff0",
   hotpink: "#ff69b4",
-  "indianred ": "#cd5c5c",
+  indianred: "#cd5c5c", // Espaço removido
   indigo: "#4b0082",
   ivory: "#fffff0",
   khaki: "#f0e68c",

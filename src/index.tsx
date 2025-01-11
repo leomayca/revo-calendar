@@ -3,8 +3,13 @@ import React, { useState, useEffect, useRef } from "react";
 import helperFunctions from "./helpers/functions";
 import translations from "./helpers/translations";
 
-import { Props } from "./typings";
-import { CHEVRON_ICON_SVG, CLOCK_ICON_SVG, DETAILS_ICON_SVG, SIDEBAR_ICON_SVG } from "./helpers/consts";
+import { Props } from "./typings"; // Removido 'Events'
+import {
+  CHEVRON_ICON_SVG,
+  CLOCK_ICON_SVG,
+  DETAILS_ICON_SVG,
+  SIDEBAR_ICON_SVG,
+} from "./helpers/consts";
 
 import { ThemeProvider } from "styled-components";
 import {
@@ -14,17 +19,13 @@ import {
   Day,
   DayButton,
   Details,
-  Event,
+  Event as StyledEvent,
   Inner,
   MonthButton,
   Sidebar,
 } from "./styles";
 
-// -1 = ANIMATE CLOSING | 0 = NOTHING | 1 = ANIMATE OPENING.
-let animatingSidebar = 0;
-let animatingDetail = 0;
-
-const RevoCalendar = ({
+const RevoCalendar: React.FC<Props> = ({
   style = {},
   className = "",
   events = [],
@@ -49,23 +50,23 @@ const RevoCalendar = ({
   timeFormat24 = true,
   showAllDayLabel = false,
   detailDateFormat = "DD/MM/YYYY",
-  languages = translations,
+  languages: languagesProp = translations,
   date = new Date(),
   dateSelected = () => {},
   eventSelected = () => {},
   addEvent = () => {},
   deleteEvent = () => {},
 }: Props) => {
-  // TRANSFORM ANY PASSED COLOR FORMAT INTO RGB.
+  // Transformar cores passadas em RGB
   const primaryColorRGB = helperFunctions.getRGBColor(primaryColor);
   const secondaryColorRGB = helperFunctions.getRGBColor(secondaryColor);
   const todayColorRGB = helperFunctions.getRGBColor(todayColor);
   const indicatorColorRGB = helperFunctions.getRGBColor(indicatorColor);
   const textColorRGB = helperFunctions.getRGBColor(textColor);
 
-  const calendarRef: any = useRef(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
-  // GET CALENDAR SIZE HOOK.
+  // Hook para obter a largura do calendário
   function useCalendarWidth() {
     const [size, setSize] = useState(0);
     useEffect(() => {
@@ -74,59 +75,85 @@ const RevoCalendar = ({
           setSize(calendarRef.current.offsetWidth);
         }
       }
-      if (typeof window !== "undefined") window.addEventListener("resize", updateSize);
+      if (typeof window !== "undefined")
+        window.addEventListener("resize", updateSize);
       updateSize();
       return () => window.removeEventListener("resize", updateSize);
-    }, [calendarRef.current]);
+    }, [calendarRef]);
     return size;
   }
 
   const calendarWidth = useCalendarWidth();
 
-  // IF CALENDAR WIDTH CAN'T FIT BOTH PANELS, FORCE ONE PANEL AT A TIME.
-  if (calendarWidth <= 320 + sidebarWidth + detailWidth) {
-    onePanelAtATime = true;
-    // IF BOTH SIDEBAR AND DETAIL PANELS ARE SET TO BE OPEN BY DEFAULT, SIDEBAR WILL HAVE PRIORITY.
-    if (sidebarDefault && detailDefault) detailDefault = false;
-  }
+  // Estados para variáveis que precisam ser modificadas
+  const [isOnePanelAtATime, setIsOnePanelAtATime] = useState(onePanelAtATime);
+  const [isDetailDefault, setIsDetailDefault] = useState(detailDefault);
 
-  // IN ORDER TO MAKE IT RESPONSIBLE, PANELS WILL FLOAT ON TOP OF CALENDAR ON LOW RES.
-  const floatingPanels = calendarWidth <= 320 + sidebarWidth || calendarWidth <= 320 + detailWidth;
+  // Estados para controle de animações
+  const [animatingSidebar, setAnimatingSidebar] = useState<number>(0); // -1 = fechando, 0 = nada, 1 = abrindo
+  const [animatingDetail, setAnimatingDetail] = useState<number>(0); // -1 = fechando, 0 = nada, 1 = abrindo
 
-  // IF, WITH THE CURRENT SETTING, THE SIDEBAR OR DETAIL PANELS WON'T FIT THE SCREEN, MAKE THEM SMALLER.
-  sidebarWidth = calendarWidth < sidebarWidth + 50 ? calendarWidth - 50 : sidebarWidth;
-  detailWidth = calendarWidth < detailWidth + 50 ? calendarWidth - 50 : detailWidth;
-
-  // USE TODAY AS DEFAULT SELECTED DATE IF PASSED DATE IS INVALID.
-  if (!helperFunctions.isValidDate(date)) {
-    console.log("The passed date prop is invalid");
-    date = new Date();
-  }
-
-  // SET INITIAL STATE.
-  const [currentDay, setDay] = useState(date.getDate());
-  const [currentMonth, setMonth] = useState(date.getMonth());
-  const [currentYear, setYear] = useState(date.getFullYear());
-
+  // Estados para controle de painéis
   const [sidebarOpen, setSidebarState] = useState(sidebarDefault);
-  const [detailsOpen, setDetailsState] = useState(detailDefault);
+  const [detailsOpen, setDetailsState] = useState(isDetailDefault);
 
-  // GIVE PARENT COMPONENT THE CURRENT SELECTED CALENDAR DAY.
+  // Estados para seleção de data
+  const [currentDay, setDay] = useState<number>(date.getDate());
+  const [currentMonth, setMonth] = useState<number>(date.getMonth());
+  const [currentYear, setYear] = useState<number>(date.getFullYear());
+
+  // Atualizar seleção de data para o componente pai
   useEffect(() => {
     dateSelected({
       day: currentDay,
       month: currentMonth,
       year: currentYear,
     });
-  }, [currentDay, currentMonth, currentYear]);
+  }, [currentDay, currentMonth, currentYear, dateSelected]);
 
-  // CLOSE DETAILS IF CAN'T FIT IT ANYMORE AFTER RESIZING.
+  // Ajustar layout baseado na largura do calendário
   useEffect(() => {
-    if (sidebarOpen && detailsOpen && calendarWidth <= 320 + sidebarWidth + detailWidth) {
-      animatingDetail = -1;
+    if (calendarWidth <= 320 + sidebarWidth + detailWidth) {
+      setIsOnePanelAtATime(true);
+      if (sidebarDefault && isDetailDefault) {
+        setIsDetailDefault(false);
+      }
+    }
+  }, [
+    calendarWidth,
+    sidebarWidth,
+    detailWidth,
+    sidebarDefault,
+    isDetailDefault,
+  ]);
+
+  // Determinar se os painéis devem flutuar
+  const floatingPanels =
+    calendarWidth <= 320 + sidebarWidth || calendarWidth <= 320 + detailWidth;
+
+  // Ajustar larguras dos painéis se necessário
+  const adjustedSidebarWidth =
+    calendarWidth < sidebarWidth + 50 ? calendarWidth - 50 : sidebarWidth;
+  const adjustedDetailWidth =
+    calendarWidth < detailWidth + 50 ? calendarWidth - 50 : detailWidth;
+
+  // Atualizar estado de detalhes com base na largura
+  useEffect(() => {
+    if (
+      sidebarOpen &&
+      detailsOpen &&
+      calendarWidth <= 320 + adjustedSidebarWidth + adjustedDetailWidth
+    ) {
+      setAnimatingDetail(-1);
       setDetailsState(false);
     }
-  }, [calendarWidth]);
+  }, [
+    calendarWidth,
+    sidebarOpen,
+    detailsOpen,
+    adjustedSidebarWidth,
+    adjustedDetailWidth,
+  ]);
 
   /***********************
    * CALENDAR COMPONENTS *
@@ -140,17 +167,20 @@ const RevoCalendar = ({
       setYear(currentYear + 1);
     }
 
-    // MAKE SURE NO ANIMATION WILL RUN ON NEXT RE-RENDER.
-    function animationEnd() {
-      animatingSidebar = 0;
+    // Finalizar animação
+    function handleAnimationEnd() {
+      setAnimatingSidebar(0);
     }
 
     function toggleSidebar() {
-      animatingSidebar = sidebarOpen ? -1 : 1;
+      // TODO
+      const newAnimatingSidebar = sidebarOpen ? -1 : 1;
+      setAnimatingSidebar(newAnimatingSidebar);
       setSidebarState(!sidebarOpen);
-      // FORCE DETAILS TO CLOSE IF onePanelAtATime IS true.
-      if (animatingSidebar === 1 && onePanelAtATime && detailsOpen) {
-        animatingDetail = -1;
+
+      // Fechar detalhes se necessário
+      if (newAnimatingSidebar === 1 && isOnePanelAtATime && detailsOpen) {
+        setAnimatingDetail(-1);
         setDetailsState(false);
       }
     }
@@ -167,7 +197,11 @@ const RevoCalendar = ({
       ariaLabel: string;
     }) {
       return (
-        <button onClick={action} aria-label={ariaLabel}>
+        <button
+          onClick={action}
+          aria-label={ariaLabel}
+          style={{ cursor: "pointer", background: "none", border: "none" }}
+        >
           <svg
             aria-hidden="true"
             focusable="false"
@@ -184,50 +218,53 @@ const RevoCalendar = ({
       );
     }
 
+    const currentLanguage = languagesProp[lang] || languagesProp["en"];
+
     return (
       <>
         <Sidebar
           animatingIn={animatingSidebar === 1}
           animatingOut={animatingSidebar === -1}
           sidebarOpen={sidebarOpen}
-          onAnimationEnd={animationEnd}
+          onAnimationEnd={handleAnimationEnd}
         >
           <div>
             <ChevronButton
               angle={90}
               color={secondaryColorRGB}
               action={prevYear}
-              ariaLabel={languages[lang].previousYear}
+              ariaLabel={currentLanguage.previousYear}
             />
             <span>{currentYear}</span>
             <ChevronButton
               angle={270}
               color={secondaryColorRGB}
               action={nextYear}
-              ariaLabel={languages[lang].nextYear}
+              ariaLabel={currentLanguage.nextYear}
             />
           </div>
           <div>
             <ul>
-              {languages[lang].months.map((month: string, i: number) => {
-                return (
-                  <li key={i}>
-                    <MonthButton current={i === currentMonth} onClick={() => setMonth(i)}>
-                      {month}
-                    </MonthButton>
-                  </li>
-                );
-              })}
+              {currentLanguage.months.map((month: string, i: number) => (
+                <li key={i}>
+                  <MonthButton
+                    current={i === currentMonth}
+                    onClick={() => setMonth(i)}
+                  >
+                    {month}
+                  </MonthButton>
+                </li>
+              ))}
             </ul>
           </div>
         </Sidebar>
         {showSidebarToggler && (
-          <CloseSidebar
+          <CloseSidebar // TODO
             onClick={toggleSidebar}
             animatingIn={animatingSidebar === 1}
             animatingOut={animatingSidebar === -1}
             sidebarOpen={sidebarOpen}
-            aria-label={languages[lang].toggleSidebar}
+            aria-label={currentLanguage.toggleSidebar}
           >
             <svg width="24" height="24" viewBox="0 0 24 24">
               <path fill={secondaryColorRGB} d={SIDEBAR_ICON_SVG} />
@@ -239,23 +276,24 @@ const RevoCalendar = ({
   }
 
   function CalendarInner() {
-    // GET LIST OF DAYS ON EACH MONTH ACCOUNTING FOR LEAP YEARS.
-    const daysInMonths = helperFunctions.isLeapYear(currentYear);
+    // Obter lista de dias do mês, considerando anos bissextos
+    const daysInMonths = helperFunctions.getDaysInMonths(currentYear); // Certifique-se de que essa função retorna array com 12 elementos
 
-    const days = [];
+    const days: JSX.Element[] = [];
     for (let index = 1; index <= daysInMonths[currentMonth]; index++) {
-      var isToday = helperFunctions.isToday(index, currentMonth, currentYear);
-      var highlight = isToday && highlightToday;
-      var hasEvent = false;
+      const isToday = helperFunctions.isToday(index, currentMonth, currentYear);
+      const highlight = isToday && highlightToday;
+      let hasEvent = false;
 
-      for (let indexEvent = 0; indexEvent < events.length; indexEvent++) {
+      for (let event of events) {
+        const eventDate = new Date(event.date);
         const currentDate = new Date(currentYear, currentMonth, index);
 
-        // TAKE OUT TIME FROM PASSED TIMESTAMP IN ORDER TO COMPARE ONLY DATE
-        var tempDate = new Date(events[indexEvent].date);
-        tempDate.setHours(0, 0, 0, 0);
+        // Remover tempo para comparação
+        eventDate.setHours(0, 0, 0, 0);
+        currentDate.setHours(0, 0, 0, 0);
 
-        if (tempDate.getTime() === currentDate.getTime()) {
+        if (eventDate.getTime() === currentDate.getTime()) {
           hasEvent = true;
           break;
         }
@@ -263,17 +301,18 @@ const RevoCalendar = ({
 
       const day = (
         <DayButton
+          key={index}
           today={highlight}
           current={index === currentDay}
           hasEvent={hasEvent}
           onClick={() => {
             setDay(index);
             if (openDetailsOnDateSelection && !detailsOpen) {
-              animatingDetail = 1;
+              setAnimatingDetail(1);
               setDetailsState(true);
-              // FORCE SIDEBAR TO CLOSE IF onePanelAtATime IS true.
-              if (onePanelAtATime && sidebarOpen) {
-                animatingSidebar = -1;
+              // Fechar sidebar se necessário
+              if (isOnePanelAtATime && sidebarOpen) {
+                setAnimatingSidebar(-1);
                 setSidebarState(false);
               }
             }
@@ -285,39 +324,44 @@ const RevoCalendar = ({
       days.push(day);
     }
 
+    const currentLanguage = languagesProp[lang] || languagesProp["en"];
+
     return (
       <Inner
         onClick={() => {
           if (floatingPanels) {
             if (sidebarOpen) {
-              animatingSidebar = -1;
+              setAnimatingSidebar(-1);
               setSidebarState(false);
             } else if (detailsOpen) {
-              animatingDetail = -1;
+              setAnimatingDetail(-1);
               setDetailsState(false);
             }
           }
         }}
       >
-        <h1>{languages[lang].months[currentMonth]}</h1>
+        <h1>{currentLanguage.months[currentMonth]}</h1>
         <div>
           <div>
-            {languages[lang].daysShort.map((weekDay: string) => {
-              return <div key={weekDay}>{weekDay.toUpperCase()}</div>;
-            })}
+            {currentLanguage.daysShort.map((weekDay: string) => (
+              <div key={weekDay}>{weekDay.toUpperCase()}</div>
+            ))}
           </div>
           <div>
-            {days.map((day, i) => {
-              return (
-                <Day
-                  firstDay={i === 0}
-                  key={i}
-                  firstOfMonth={helperFunctions.getFirstWeekDayOfMonth(currentMonth, currentYear) + 1}
-                >
-                  {day}
-                </Day>
-              );
-            })}
+            {days.map((day, i) => (
+              <Day
+                firstDay={i === 0}
+                key={i}
+                firstOfMonth={
+                  helperFunctions.getFirstWeekDayOfMonth(
+                    currentMonth,
+                    currentYear
+                  ) + 1
+                }
+              >
+                {day}
+              </Day>
+            ))}
           </div>
         </div>
       </Inner>
@@ -325,87 +369,113 @@ const RevoCalendar = ({
   }
 
   function CalendarDetails() {
-    var selectedDate = new Date(currentYear, currentMonth, currentDay);
+    const selectedDate = new Date(currentYear, currentMonth, currentDay);
 
-    // WILL SHOW DELETE EVENT BUTTON ON CURRENT showDelete INDEX. -1 WON'T SHOW ANYTHING
-    const [showDelete, setDeleteState] = useState(-1);
+    // Estado para mostrar botão de deletar
+    const [showDelete, setDeleteState] = useState<number>(-1);
 
-    // MAKE SURE NO ANIMATION WILL RUN ON NEXT RE-RENDER.
-    function animationEnd() {
-      animatingDetail = 0;
+    // Finalizar animação
+    function handleAnimationEnd() {
+      setAnimatingDetail(0);
     }
 
     function toggleDetails() {
-      animatingDetail = detailsOpen ? -1 : 1;
+      // TODO
+      const newAnimatingDetail = detailsOpen ? -1 : 1;
+      setAnimatingDetail(newAnimatingDetail);
       setDetailsState(!detailsOpen);
-      // FORCE SIDEBAR TO CLOSE IF onePanelAtATime IS true.
-      if (animatingDetail === 1 && onePanelAtATime && sidebarOpen) {
-        animatingSidebar = -1;
+
+      // Fechar sidebar se necessário
+      if (newAnimatingDetail === 1 && isOnePanelAtATime && sidebarOpen) {
+        setAnimatingSidebar(-1);
         setSidebarState(false);
       }
     }
 
     function toggleDeleteButton(i: number) {
-      // GIVE PARENT COMPONENT THE CURRENT SELECTED EVENT.
+      // Enviar evento selecionado para o pai
       eventSelected(i);
 
       if (allowDeleteEvent) {
-        showDelete === i ? setDeleteState(-1) : setDeleteState(i);
+        setDeleteState((prev) => (prev === i ? -1 : i));
       }
     }
 
-    const eventDivs = [];
+    const currentLanguage = languagesProp[lang] || languagesProp["en"];
 
-    for (let index = 0; index < events.length; index++) {
-      var eventDate = new Date(events[index].date);
+    const eventDivs = events
+      .map((event, index) => {
+        const eventDate = new Date(event.date);
+        const selectedDateNoTime = new Date(selectedDate);
+        selectedDateNoTime.setHours(0, 0, 0, 0);
+        eventDate.setHours(0, 0, 0, 0);
 
-      // TAKE OUT TIME FROM PASSED TIMESTAMP IN ORDER TO COMPARE ONLY DATE
-      var tempDate = new Date(events[index].date);
-      tempDate.setHours(0, 0, 0, 0);
-
-      if (helperFunctions.isValidDate(eventDate) && tempDate.getTime() === selectedDate.getTime()) {
-        const event = (
-          <Event key={index} onClick={() => toggleDeleteButton(index)} role="button">
-            <p>{events[index].name}</p>
-            <div>
-              {events[index].allDay ? (
-                <>
-                  {showAllDayLabel && (
-                    <div aria-label={languages[lang].eventTime}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        if (
+          helperFunctions.isValidDate(eventDate) &&
+          eventDate.getTime() === selectedDateNoTime.getTime()
+        ) {
+          return (
+            <StyledEvent
+              key={index}
+              onClick={() => toggleDeleteButton(index)}
+              role="button"
+            >
+              <p>{event.name}</p>
+              <div>
+                {event.allDay ? (
+                  showAllDayLabel && (
+                    <div aria-label={currentLanguage.eventTime}>
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
                         <path fill={primaryColorRGB} d={CLOCK_ICON_SVG} />
                       </svg>
-                      <span>{languages[lang].allDay}</span>
+                      <span>{currentLanguage.allDay}</span>
                     </div>
-                  )}
-                </>
-              ) : (
-                <div>
-                  <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path fill={primaryColorRGB} d={CLOCK_ICON_SVG} />
-                  </svg>
-                  <span>{helperFunctions.getFormattedTime(eventDate, timeFormat24)}</span>
-                </div>
+                  )
+                ) : (
+                  <div>
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                      <path fill={primaryColorRGB} d={CLOCK_ICON_SVG} />
+                    </svg>
+                    <span>
+                      {helperFunctions.getFormattedTime(
+                        eventDate,
+                        timeFormat24
+                      )}
+                    </span>
+                  </div>
+                )}
+                {event.extra && (
+                  <div>
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                      <path fill={primaryColorRGB} d={event.extra.icon} />
+                    </svg>
+                    <span>{event.extra.text}</span>
+                  </div>
+                )}
+              </div>
+              {showDelete === index && (
+                <button
+                  onClick={() => deleteEvent(index)}
+                  aria-label={currentLanguage.delete}
+                >
+                  {currentLanguage.delete}
+                </button>
               )}
-              {events[index].extra && (
-                <div>
-                  <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path fill={primaryColorRGB} d={events[index].extra?.icon} />
-                  </svg>
-                  <span>{events[index].extra?.text}</span>
-                </div>
-              )}
-            </div>
-            {showDelete === index && <button onClick={() => deleteEvent(index)}>{languages[lang].delete}</button>}
-          </Event>
-        );
-        eventDivs.push(event);
-      }
-    }
+            </StyledEvent>
+          );
+        }
+        return null;
+      })
+      .filter(Boolean); // Remover elementos nulos
 
-    // FOR NO-EVENT DAYS ADD NO EVENTS TEXT
+    // Adicionar mensagem de nenhum evento
     if (eventDivs.length === 0) {
-      eventDivs.push(<p key={-1}>{languages[lang].noEventForThisDay}</p>);
+      eventDivs.push(<p key="no-event">{currentLanguage.noEventForThisDay}</p>);
     }
 
     return (
@@ -415,29 +485,34 @@ const RevoCalendar = ({
           animatingOut={animatingDetail === -1}
           detailsOpen={detailsOpen}
           floatingPanels={floatingPanels}
-          onAnimationEnd={animationEnd}
+          onAnimationEnd={handleAnimationEnd}
         >
           <div>
-            {helperFunctions.getFormattedDate(selectedDate, detailDateFormat, lang, languages)}
+            {helperFunctions.getFormattedDate(
+              selectedDate,
+              detailDateFormat,
+              lang,
+              languagesProp
+            )}
             {allowAddEvent && (
-              <button onClick={() => addEvent(new Date(currentYear, currentMonth, currentDay))}>
-                {languages[lang].addEvent}
+              <button
+                onClick={() =>
+                  addEvent(new Date(currentYear, currentMonth, currentDay))
+                }
+              >
+                {currentLanguage.addEvent}
               </button>
             )}
           </div>
-          <div>
-            {eventDivs.map((event) => {
-              return event;
-            })}
-          </div>
+          <div>{eventDivs.map((event) => event)}</div>
         </Details>
         {showDetailToggler && (
-          <CloseDetail
+          <CloseDetail // TODO
             onClick={toggleDetails}
             animatingIn={animatingDetail === 1}
             animatingOut={animatingDetail === -1}
             detailsOpen={detailsOpen}
-            aria-label={languages[lang].toggleDetails}
+            aria-label={currentLanguage.toggleDetails}
           >
             <svg width="24" height="24" viewBox="0 0 24 24">
               <path fill={secondaryColorRGB} d={DETAILS_ICON_SVG} />
@@ -455,14 +530,17 @@ const RevoCalendar = ({
     <ThemeProvider
       theme={{
         primaryColor: primaryColorRGB,
-        primaryColor50: helperFunctions.getRGBAColorWithAlpha(primaryColorRGB, 0.5),
+        primaryColor50: helperFunctions.getRGBAColorWithAlpha(
+          primaryColorRGB,
+          0.5
+        ),
         secondaryColor: secondaryColorRGB,
         todayColor: todayColorRGB,
         textColor: textColorRGB,
         indicatorColor: indicatorColorRGB,
         animationSpeed: `${animationSpeed}ms`,
-        sidebarWidth: `${sidebarWidth}px`,
-        detailWidth: `${detailWidth}px`,
+        sidebarWidth: `${adjustedSidebarWidth}px`,
+        detailWidth: `${adjustedDetailWidth}px`,
       }}
     >
       <Calendar className={className} ref={calendarRef} style={style}>
@@ -473,4 +551,5 @@ const RevoCalendar = ({
     </ThemeProvider>
   );
 };
+
 export default RevoCalendar;
